@@ -13,22 +13,22 @@ func BotRun() {
     DGSession, err := discordgo.New(BotToken)
     if err != nil { panic(err.Error()) }
 
-    DGSession.Identify.Intents = discordgo.IntentsAllWithoutPrivileged
+    DGSession.Identify.Intents = discordgo.IntentsAll
     DGSession.AddHandler(MessageHandler);
     DGSession.AddHandler(SlashCommandHandler);
 
     /* grab the bot user's id */
     botUser, err := DGSession.User("@me")
-    if err != nil { panic(err.Error()) }
+    if err != nil { log.Panic(err.Error()) }
     BotID = botUser.ID
 
     err = DGSession.Open()
-    if err != nil { panic(err.Error()) }
+    if err != nil { log.Panic(err.Error()) }
     fmt.Println("Bot is now running...")
 
     /* initialize slash commands */
     for _, c := range SlashCommands {
-        _, err := DGSession.ApplicationCommandCreate(DGSession.State.User.ID, "", c)
+        _, err := DGSession.ApplicationCommandCreate(DGSession.State.User.ID, GuildID, c)
         if err != nil {
             log.Printf("Failed to create slash command: %v", c.Name, err)
         }

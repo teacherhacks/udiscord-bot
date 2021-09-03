@@ -7,6 +7,7 @@ import (
 var SlashCommands = []*discordgo.ApplicationCommand{
     {
         Name: "hello",
+        Type: discordgo.ChatApplicationCommand,
         Description: "basic test",
     },
 }
