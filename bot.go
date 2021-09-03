@@ -28,7 +28,7 @@ func BotRun() {
 
     /* initialize slash commands */
     for _, c := range SlashCommands {
-        _, err := DGSession.ApplicationCommandCreate(DGSession.State.User.ID, GuildID, c)
+        _, err := DGSession.ApplicationCommandCreate(DGSession.State.User.ID, CommandGuildID, c)
         if err != nil {
             log.Printf("Failed to create slash command: %v", c.Name, err)
         }
