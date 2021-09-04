@@ -33,16 +33,19 @@ func dbConnection() *sql.DB {
 
 // }
 
+/* privledge enum
+*  CREATE TYPE privledge_enum AS ENUM ('STUDENT', 'INSTRUCTOR')
+*/
 
 /* initializes db with all the tables */
-func InitDB() error {
+func DBInit() error {
     db := dbConnection()
     defer db.Close()
 
     query := `
     CREATE TABLE IF NOT EXISTS users(
         id serial primary key,
-        discordid varchar(64) not null unique,
+        discordid integer not null unique,
         privledge privledge_enum not null
     )
     `
@@ -51,7 +54,22 @@ func InitDB() error {
 }
 
 /* wipes the db */
-func PurgeDB() {
+func DBPurge() {
 
+}
+
+func DBNewStudent(discordid int) (int, error) {
+    db := dbConnection()
+    defer db.Close()
+
+    query := `
+    INSERT INTO users (discordid, privledge)
+    VALUES ($1, $2)
+    RETURNING id
+    `
+
+    id := -1
+    err := db.QueryRow(query, discordid, "STUDENT").Scan(&id)
+    return id, err
 }
 

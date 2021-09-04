@@ -1,7 +1,7 @@
 package main
 
 import (
-    _ "fmt"
+    "fmt"
     "github.com/bwmarrin/discordgo"
 )
 
@@ -33,6 +33,7 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
         })
     },
     "init": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
         guildID := i.Interaction.GuildID
 
         /* create channels =-=-=-=-=-=-= */
@@ -58,14 +59,11 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
         role, _ = s.GuildRoleCreate(guildID);
         s.GuildRoleEdit(guildID, role.ID, "Student", 1889791, true, 174016814656, true);
 
-        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-            Type: discordgo.InteractionResponseChannelMessageWithSource,
-            Data: &discordgo.InteractionResponseData{
-                Content: "sucessfully initialized server",
-            },
-        })
+        interactionSuccess("sucessfully initialized server", s, i)
     },
     "purge": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+        if !adminCommandPrivledge(s, i) { return }
+
         guildID := i.Interaction.GuildID
 
         /* delete all channels */
@@ -76,12 +74,35 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
 
         s.GuildChannelCreate(guildID, "general", discordgo.ChannelTypeGuildText)
 
-        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-            Type: discordgo.InteractionResponseChannelMessageWithSource,
-            Data: &discordgo.InteractionResponseData{
-                Content: "purged server",
-            },
-        })
+        interactionSuccess("purged server", s, i)
     },
+}
+
+/* helpers */
+
+/* restricts command to only be used by admins */
+func adminCommandPrivledge(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+    if (i.Interaction.Member.Permissions >> 3) & 0x1 == 0x1 { return true }
+    interactionError("You do not have permission to execute this command.", s, i)
+    return false
+}
+
+/* interaction responses */
+func interactionSuccess(successMessage string, s *discordgo.Session, i *discordgo.InteractionCreate) {
+    s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: successMessage,
+        },
+    })
+}
+
+func interactionError(errorMessage string, s *discordgo.Session, i *discordgo.InteractionCreate) {
+    s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: fmt.Sprintf("**[ERROR]** %s", errorMessage),
+        },
+    })
 }
 

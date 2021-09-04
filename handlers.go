@@ -40,7 +40,7 @@ func JoinHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
         },
     }
 
-    studentCategory, _ := s.GuildChannelCreate(guildID, fmt.Sprintf("%s's channels"), discordgo.ChannelTypeGuildCategory);
+    studentCategory, _ := s.GuildChannelCreate(guildID, fmt.Sprintf("%s's channels", m.Member.User.Username), discordgo.ChannelTypeGuildCategory);
     s.GuildChannelCreateComplex(guildID, discordgo.GuildChannelCreateData{
         Name: "questions",
         Type: discordgo.ChannelTypeGuildText,
