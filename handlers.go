@@ -37,30 +37,4 @@ func JoinHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 
     s.ChannelMessageSend(userChannel.ID, fmt.Sprintf("Hello! Welcome to %v", guildInfo.Name))
 
-    return
-    /* create channels for student */
-    studentChannelPermissions := []*discordgo.PermissionOverwrite{
-        {
-            ID: guildID,
-            Type: discordgo.PermissionOverwriteTypeRole,
-            Allow: 0,
-            Deny: 1024, // disable @everyone from viewing channel
-        },
-        {
-            ID: m.User.ID,
-            Type: discordgo.PermissionOverwriteTypeMember,
-            Allow: 1024, // allow viewing
-            Deny: 0,
-        },
-    }
-
-    studentCategory, _ := s.GuildChannelCreate(guildID, fmt.Sprintf("%s's channels", m.Member.User.Username), discordgo.ChannelTypeGuildCategory);
-    s.GuildChannelCreateComplex(guildID, discordgo.GuildChannelCreateData{
-        Name: "questions",
-        Type: discordgo.ChannelTypeGuildText,
-        ParentID: studentCategory.ID,
-        Topic: "Use this channel to ask instructors any private questions",
-        PermissionOverwrites: studentChannelPermissions,
-    })
-
 }

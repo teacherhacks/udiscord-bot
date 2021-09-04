@@ -1,6 +1,7 @@
 package main
 
 import (
+    "strings"
     "log"
     "fmt"
     "strconv"
@@ -29,7 +30,40 @@ var SlashCommands = []*discordgo.ApplicationCommand{
     {
         Name: "register",
         Type: discordgo.ChatApplicationCommand,
-        Description: "Registers user with role into class",
+        Description: "Registers user with role into class.",
+        Options: []*discordgo.ApplicationCommandOption{
+            {
+                Name: "student",
+                Description: "Register into class as a student.",
+                Type: discordgo.ApplicationCommandOptionSubCommand,
+            },
+            {
+                Name: "instructor",
+                Description: "Register into class as a instructor; requires a password",
+                Type: discordgo.ApplicationCommandOptionSubCommand,
+                Options: []*discordgo.ApplicationCommandOption{
+                    {
+                        Type: discordgo.ApplicationCommandOptionString,
+                        Name: "password",
+                        Description: "Password to register as insturctor",
+                        Required: true,
+                    },
+                },
+            },
+            {
+                Name: "ta",
+                Description: "Register into class as a TA; requires a password",
+                Type: discordgo.ApplicationCommandOptionSubCommand,
+                Options: []*discordgo.ApplicationCommandOption{
+                    {
+                        Type: discordgo.ApplicationCommandOptionString,
+                        Name: "password",
+                        Description: "Password to register as TA",
+                        Required: true,
+                    },
+                },
+            },
+        },
     },
     {
         Name: "new-assignment",
@@ -97,17 +131,31 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
         guildID := i.Interaction.GuildID
 
         /* delete all channels */
-        channels, _ := s.GuildChannels(guildID);
-        for _, c := range channels {
-            s.ChannelDelete(c.ID)
-        }
+        channels, _ := s.GuildChannels(guildID)
+        for _, c := range channels { s.ChannelDelete(c.ID) }
+
+        /* delete all roles */
+        roles, _ := s.GuildRoles(guildID)
+        for _, r := range roles { s.GuildRoleDelete(guildID, r.ID) }
 
         s.GuildChannelCreate(guildID, "general", discordgo.ChannelTypeGuildText)
 
         interactionSuccess("purged server", s, i)
     },
     "register": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-        if !dmCommand(s, i) { return }
+        /* dm only is not good idea, since we don't have guildid */
+        // if !dmCommand(s, i) { return }
+
+        /* parse subcommands */
+        switch i.ApplicationCommandData().Options[0].Name {
+            case "student":
+                registerStudent(s, i)
+            case "instructor":
+                registerInstructor(s, i)
+            case "ta":
+                registerTA(s, i)
+        }
+
     },
     // TODO switch over to validation library
     "new-assignment": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -130,6 +178,62 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
     },
 }
 
+/* sub commands for register */
+func registerStudent(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    guildID := i.Interaction.GuildID
+
+    /* create channels for student */
+    studentChannelPermissions := []*discordgo.PermissionOverwrite{
+        {
+            ID: guildID,
+            Type: discordgo.PermissionOverwriteTypeRole,
+            Allow: 0,
+            Deny: 1024, // disable @everyone from viewing channel
+        },
+        {
+            ID: i.Member.User.ID,
+            Type: discordgo.PermissionOverwriteTypeMember,
+            Allow: 1024, // allow viewing
+            Deny: 0,
+        },
+    }
+
+    studentCategory, err := s.GuildChannelCreate(guildID, fmt.Sprintf("%s's channels", i.Member.User.Username), discordgo.ChannelTypeGuildCategory);
+    if err != nil { log.Println(err) }
+
+    s.GuildChannelCreateComplex(guildID, discordgo.GuildChannelCreateData{
+        Name: "questions",
+        Type: discordgo.ChannelTypeGuildText,
+        ParentID: studentCategory.ID,
+        Topic: "Use this channel to ask instructors any private questions",
+        PermissionOverwrites: studentChannelPermissions,
+    })
+
+    studentRole, _ := findGuildRole(s, i.Interaction.GuildID, "Student")
+    s.GuildMemberRoleAdd(guildID, i.Member.User.ID, studentRole)
+
+    interactionSuccess("Sucessfully registered as student!", s, i)
+
+}
+
+func registerInstructor(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    guildID := i.Interaction.GuildID
+
+    instructorRole, _ := findGuildRole(s, guildID, "Instructor")
+    s.GuildMemberRoleAdd(guildID, i.Member.User.ID, instructorRole)
+
+    interactionSuccess("Sucessfully registered as instructor!", s, i)
+}
+
+func registerTA(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    guildID := i.Interaction.GuildID
+
+    taRole, _ := findGuildRole(s, guildID, "TA")
+    s.GuildMemberRoleAdd(guildID, i.Member.User.ID, taRole)
+
+    interactionSuccess("Sucessfully registered as TA!", s, i)
+}
+
 /* helpers */
 
 /* restricts command to only be used by admins */
@@ -149,6 +253,15 @@ func dmCommand(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
     return false
 }
 
+/* finds a role based on name */
+func findGuildRole(s *discordgo.Session, guildID string, roleName string) (string, error) {
+
+    guildRoles, _ := s.GuildRoles(guildID)
+    for _, r := range guildRoles {
+        if strings.Compare(r.Name, roleName) == 0 { return r.ID, nil }
+    }
+    return "", errors.New(fmt.Sprintf("Cannot find role of name %s", roleName))
+}
 
 /* checks if string is in YYYY-MM-DD HH:MM format */
 /* converts datestring option to date */
@@ -177,7 +290,7 @@ func interactionSuccess(successMessage string, s *discordgo.Session, i *discordg
     s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
-            Content: successMessage,
+            Content: fmt.Sprintf("%s", successMessage),
         },
     })
 }
