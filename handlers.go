@@ -1,6 +1,7 @@
 package main
 
 import (
+    "log"
     "fmt"
     "github.com/bwmarrin/discordgo"
 )
@@ -24,6 +25,19 @@ func MessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 func JoinHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
     guildID := m.Member.GuildID
 
+    /* create dm with user and ask them register */
+    userID := m.Member.User.ID
+
+    userChannel, err := s.UserChannelCreate(userID)
+    if err != nil { log.Printf("Cannot open private channel with user %v", userID) }
+
+    /* send user a message to tell them to verify */
+    guildInfo, err := s.Guild(guildID)
+    if err != nil { log.Printf("Error finding guild information") }
+
+    s.ChannelMessageSend(userChannel.ID, fmt.Sprintf("Hello! Welcome to %v", guildInfo.Name))
+
+    return
     /* create channels for student */
     studentChannelPermissions := []*discordgo.PermissionOverwrite{
         {

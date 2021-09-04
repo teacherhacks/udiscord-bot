@@ -1,6 +1,7 @@
 package main
 
 import (
+    "log"
     "fmt"
     "strconv"
     "regexp"
@@ -24,6 +25,11 @@ var SlashCommands = []*discordgo.ApplicationCommand{
         Name: "purge",
         Type: discordgo.ChatApplicationCommand,
         Description: "Nukes the server; used for development",
+    },
+    {
+        Name: "register",
+        Type: discordgo.ChatApplicationCommand,
+        Description: "Registers user with role into class",
     },
     {
         Name: "new-assignment",
@@ -56,7 +62,7 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
         })
     },
     "init": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-        if !adminCommandPrivledge(s, i) { return }
+        if !adminPrivledgeCommand(s, i) { return }
 
         guildID := i.Interaction.GuildID
 
@@ -86,7 +92,7 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
         interactionSuccess("sucessfully initialized server", s, i)
     },
     "purge": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-        if !adminCommandPrivledge(s, i) { return }
+        if !adminPrivledgeCommand(s, i) { return }
 
         guildID := i.Interaction.GuildID
 
@@ -100,11 +106,26 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
 
         interactionSuccess("purged server", s, i)
     },
+    "register": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+        if !dmCommand(s, i) { return }
+    },
+    // TODO switch over to validation library
     "new-assignment": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+        assignmentNameArg := i.ApplicationCommandData().Options[0].StringValue();
+        dueDateArg := i.ApplicationCommandData().Options[1].StringValue();
+
+        guildID := i.Interaction.GuildID
+
         /* do some validation on args */
-        parseDateStringCommandArg(i.ApplicationCommandData().Options[1].StringValue())
+        dueDate, err := parseDateStringCommandArg(dueDateArg)
 
         /* insert assignment into database */
+        _, err = DBNewAssignment(guildID, assignmentNameArg, dueDate.Unix());
+        if err != nil {
+            interactionError("Failed to create new assignment", s, i)
+            return
+        }
+        interactionSuccess(fmt.Sprintf("Successfully created assignment %s", assignmentNameArg), s, i)
 
     },
 }
@@ -112,11 +133,22 @@ var SlashCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
 /* helpers */
 
 /* restricts command to only be used by admins */
-func adminCommandPrivledge(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+func adminPrivledgeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
     if (i.Interaction.Member.Permissions >> 3) & 0x1 == 0x1 { return true }
     interactionError("You do not have permission to execute this command.", s, i)
     return false
 }
+
+/* restricts command to be used only in dm */
+func dmCommand(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+    channelInfo, err := s.Channel(i.Interaction.ChannelID)
+    if err != nil { log.Println("Error retrieving channel information") }
+
+    if channelInfo.Type == discordgo.ChannelTypeDM { return true }
+    interactionError("Please run this command in a DM.", s, i)
+    return false
+}
+
 
 /* checks if string is in YYYY-MM-DD HH:MM format */
 /* converts datestring option to date */
