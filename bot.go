@@ -16,6 +16,7 @@ func BotRun() {
     DGSession.Identify.Intents = discordgo.IntentsAll
     DGSession.AddHandler(MessageHandler);
     DGSession.AddHandler(SlashCommandHandler);
+    DGSession.AddHandler(JoinHandler);
 
     /* grab the bot user's id */
     botUser, err := DGSession.User("@me")
